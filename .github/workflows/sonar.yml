@@ -38,7 +38,7 @@ jobs:
         working-directory: ./server
 
       - name: SonarQube Scan Frontend
-        uses: SonarSource/sonarqube-scan-action@main
+        uses: SonarSource/sonarqube-scan-action@master
         with:
           args: -Dproject.settings=client/sonar-project.properties
         env:
@@ -46,7 +46,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: SonarQube Scan Backend
-        uses: SonarSource/sonarqube-scan-action@main
+        uses: SonarSource/sonarqube-scan-action@master
         with:
           args: -Dproject.settings=server/sonar-project.properties
         env:
