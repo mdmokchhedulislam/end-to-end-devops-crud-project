@@ -1,4 +1,4 @@
-name: CI/CD workflow for Node.js Build and Sonar Code Scan
+name: CI/CD pipeline for Node.js
 
 on:
   push:
@@ -11,31 +11,34 @@ jobs:
   build-and-scan:
     runs-on: ubuntu-latest
     env:
-      SONAR_HOST_URL: http://50.19.42.141:9000
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
 
     steps:
-      # 1. Checkout repository
+      # 1️⃣ Checkout Code
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # required for Sonar blame info
 
-      # 2. Setup Node.js
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      # 3. Install frontend dependencies
+      # 3️⃣ Install Dependencies
       - name: Install frontend dependencies
         run: npm install
         working-directory: ./client
 
-      # 4. Install backend dependencies
       - name: Install backend dependencies
         run: npm install
         working-directory: ./server
 
-      # 5. Optional dummy test (avoid npm test missing error)
+      # 4️⃣ Dummy Test
       - name: Dummy Test Frontend
         run: echo "No tests yet" && exit 0
         working-directory: ./client
@@ -44,26 +47,54 @@ jobs:
         run: echo "No tests yet" && exit 0
         working-directory: ./server
 
-      # 6. SonarQube Scan Frontend
+      # 5️⃣ SonarQube Scan Frontend
       - name: SonarQube Scan Frontend
         uses: SonarSource/sonarqube-scan-action@master
-        env:
-          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: >
-            -Dsonar.projectKey=frontend-project
-            -Dsonar.projectName=NodeJS-Frontend
-            -Dsonar.sources=client
+          args: -Dproject.settings=client/sonar-project.properties
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      # 7. SonarQube Scan Backend
+      # 6️⃣ SonarQube Scan Backend
       - name: SonarQube Scan Backend
         uses: SonarSource/sonarqube-scan-action@master
-        env:
-          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          args: >
-            -Dsonar.projectKey=backend-project
-            -Dsonar.projectName=NodeJS-Backend
-            -Dsonar.sources=server
+          args: -Dproject.settings=server/sonar-project.properties
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      # 7️⃣ GitLeaks Scan
+      - name: GitLeaks Scan
+        run: |
+          gitleaks detect --source ./client --exit-code 1 || true
+          gitleaks detect --source ./server --exit-code 1 || true
+
+      # 8️⃣ Build & Push Backend Docker
+      - name: Build & Push Backend Docker
+        uses: docker/build-push-action@v4
+        with:
+          context: ./server
+          push: true
+          tags: mokchhedul/branchbackend:latest
+          secrets: |
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Trivy Backend Image Scan
+        run: trivy image --format table -o backend-image-report.html mokchhedul/branchbackend:latest
+
+      # 9️⃣ Build & Push Frontend Docker
+      - name: Build & Push Frontend Docker
+        uses: docker/build-push-action@v4
+        with:
+          context: ./client
+          push: true
+          tags: mokchhedul/branchfrontend:latest
+          secrets: |
+            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+            DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Trivy Frontend Image Scan
+        run: trivy image --format table -o frontend-image-report.html mokchhedul/branchfrontend:latest
