@@ -6,14 +6,6 @@ on:
       - main
 
 jobs:
-  sonarqube:name: SonarQube Scan
-
-on:
-  push:
-    branches:
-      - main
-
-jobs:
   sonarqube:
     runs-on: ubuntu-latest
 
