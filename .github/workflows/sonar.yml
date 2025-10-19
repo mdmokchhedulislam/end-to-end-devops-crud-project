@@ -48,7 +48,7 @@ jobs:
       - name: SonarQube Scan Frontend
         uses: SonarSource/sonarqube-scan-action@master
         env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: ${{ SONAR_HOST_URL}}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
@@ -60,7 +60,7 @@ jobs:
       - name: SonarQube Scan Backend
         uses: SonarSource/sonarqube-scan-action@master
         env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL:  ${{ SONAR_HOST_URL}}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
