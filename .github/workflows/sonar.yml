@@ -16,24 +16,24 @@ jobs:
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
 
     steps:
-      # 1. Checkout repository
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
-        
+
       # 2. Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
 
-      # 3. Frontend Compilation
-      - name: Frontend Compilation
+      # 3. Frontend Compilation (syntax check)
+      - name: Frontend Syntax Check
         run: |
           cd client
           find . -name "*.js" -exec node --check {} +
 
-      # 4. Backend Compilation
-      - name: Backend Compilation
+      # 4. Backend Compilation (syntax check)
+      - name: Backend Syntax Check
         run: |
           cd server
           find . -name "*.js" -exec node --check {} +
@@ -41,75 +41,66 @@ jobs:
       # 5. GitLeaks Scan
       - name: GitLeaks Scan
         run: |
-          gitleaks detect --source ./client --exit-code 1 || true
-          gitleaks detect --source ./server --exit-code 1 || true
+          gitleaks detect --source ./client --exit-code 1
+          gitleaks detect --source ./server --exit-code 1
 
-      # 6. Install frontend dependencies
+      # 6. Install dependencies
       - name: Install frontend dependencies
         run: npm install
         working-directory: ./client
 
-      # 7. Install backend dependencies
       - name: Install backend dependencies
         run: npm install
         working-directory: ./server
 
-      # 8. SonarQube Scan Frontend
+      # 7. SonarQube Scans
       - name: SonarQube Scan Frontend
         uses: SonarSource/sonarqube-scan-action@master
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=frontend-project
             -Dsonar.sources=client
             -Dsonar.javascript.lcov.reportPaths=client/coverage/lcov.info
 
-      # 9. SonarQube Scan Backend
       - name: SonarQube Scan Backend
         uses: SonarSource/sonarqube-scan-action@master
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=backend-project
             -Dsonar.sources=server
             -Dsonar.javascript.lcov.reportPaths=server/coverage/lcov.info
 
-      # 10. Trivy FS Scan
+      # 8. Trivy FS Scan
       - name: Trivy FS Scan
-        run: trivy fs --format table -o fs-report.html .
+        run: trivy fs --exit-code 1 --format table -o fs-report.html .
 
-      # 11. Build & Push Backend Docker Image
+      # 9. Docker Login
+      - name: Docker Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # 10. Build & Push Backend Docker Image
       - name: Build & Push Backend Docker Image
         uses: docker/build-push-action@v4
         with:
           context: ./server
           push: true
           tags: mokchhedul/branchbackend:latest
-          load: false
-          secrets: |
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # 12. Trivy Backend Image Scan
+      # 11. Trivy Backend Image Scan
       - name: Trivy Backend Image Scan
-        run: trivy image --format table -o backend-image-report.html mokchhedul/branchbackend:latest
+        run: trivy image --exit-code 1 --format table -o backend-image-report.html mokchhedul/branchbackend:latest
 
-      # 13. Build & Push Frontend Docker Image
+      # 12. Build & Push Frontend Docker Image
       - name: Build & Push Frontend Docker Image
         uses: docker/build-push-action@v4
         with:
           context: ./client
           push: true
           tags: mokchhedul/branchfrontend:latest
-          load: false
-          secrets: |
-            DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-            DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
 
-      # 14. Trivy Frontend Image Scan
+      # 13. Trivy Frontend Image Scan
       - name: Trivy Frontend Image Scan
-        run: trivy image --format table -o frontend-image-report.html mokchhedul/branchfrontend:latest
+        run: trivy image --exit-code 1 --format table -o frontend-image-report.html mokchhedul/branchfrontend:latest
