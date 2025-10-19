@@ -6,7 +6,66 @@ on:
       - main
 
 jobs:
+  sonarqube:name: SonarQube Scan
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
   sonarqube:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install frontend dependencies
+        run: npm install
+        working-directory: ./client
+
+      - name: Run frontend Tests
+        run: npm test -- --coverage
+        working-directory: ./client
+
+      - name: Install backend dependencies
+        run: npm install
+        working-directory: ./server
+
+      - name: Run backend Tests
+        run: npm test -- --coverage
+        working-directory: ./server
+
+      - name: SonarQube Scan Frontend
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_HOST_URL: http://50.19.42.141:9000
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=frontend-project
+            -Dsonar.sources=client
+            -Dsonar.tests=client
+            -Dsonar.javascript.lcov.reportPaths=client/coverage/lcov.info
+
+      - name: SonarQube Scan Backend
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_HOST_URL: http://50.19.42.141:9000
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=backend-project
+            -Dsonar.sources=server
+            -Dsonar.tests=server
+            -Dsonar.javascript.lcov.reportPaths=server/coverage/lcov.info
+
     runs-on: ubuntu-latest
 
     steps:
